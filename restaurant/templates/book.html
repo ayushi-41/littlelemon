@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section>
+  <article>
+    <h1>Make a reservation</h1>
+    <!--Begin row-->
+    <div class="row">
+      <!--Begin col-->
+      <div class="column">
+          {% csrf_token %}
+          <form method="POST" id="form">
+            <p>
+              <label for="first_name">Name:</label>
+              <input type="text" placeholder="Your Name" maxlength="200" required="" id="first_name">
+            </p>
+            <p>
+              <label for="reservation_date">Reservation date:</label>
+              <input type="date" id="reservation_date">
+            </p>
+            <p>
+              <label for="reservation_slot">Reservation time:</label>
+              <select id="reservation_slot">
+                <option value="0" disabled>Select time</option>
+              </select>
+            </p>
+            <button type="button" id="button">Reserve</button>
+          </form>
+      </div>
+      <!--End col-->
+
+      <!--Begin col-->
+      <div class="column">
+        <h2>Bookings For <span id="today"></span></h2>
+        <div id="bookings">
+        </div>
+      </div>
+      <!--End col-->
+    </div>
+    <!--End row-->
+  </article>
+</section>
+
+<script>
+  // Set today's date as default
+  const date = new Date();
+  document.getElementById('reservation_date').value = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2,"0")}-${date.getDate().toString().padStart(2,"0")}`;
+
+  // Initial fetch
+  getBookings();
+
+  // Step 10: refresh bookings when date changes
+  document.getElementById('reservation_date').addEventListener('change', getBookings);
+
+  function getBookings() {
+    let reservedSlots = [];
+    let bookingsHTML = '';
+    const date = document.getElementById('reservation_date').value;
+    document.getElementById('today').innerHTML = date;
+
+    fetch("{% url 'bookings' %}?date=" + date)
+      .then(r => r.json())
+      .then(data => {
+        data.forEach(item => {
+          console.log(item.fields);  // Step 11: debug
+          reservedSlots.push(item.fields.reservation_slot);
+          bookingsHTML += `<p>${item.fields.first_name} - ${formatTime(item.fields.reservation_slot)}</p>`;
+        });
+
+        // Step 12: generate slot options
+        let slotOptions = '<option value="0" disabled>Select time</option>';
+        for(let i = 11; i < 20; i++) { // numbers >10 and <20
+          const label = formatTime(i);
+          if(reservedSlots.includes(i)) {
+            slotOptions += `<option value="${i}" disabled>${label}</option>`;
+          } else {
+            slotOptions += `<option value="${i}">${label}</option>`;
+          }
+        }
+        document.getElementById('reservation_slot').innerHTML = slotOptions;
+
+        if(bookingsHTML === '') bookingsHTML = "No bookings";
+        document.getElementById('bookings').innerHTML = bookingsHTML;
+      });
+  }
+
+  function formatTime(time) {
+    const ampm = time < 12 ? 'AM' : 'PM';
+    const t = time <= 12 ? time : time - 12;
+    return `${t} ${ampm}`;
+  }
+
+  // Reserve a slot
+  document.getElementById('button').addEventListener('click', function () {
+    const formData = {
+      first_name: document.getElementById('first_name').value,
+      reservation_date: document.getElementById('reservation_date').value,
+      reservation_slot: document.getElementById('reservation_slot').value,
+    };
+
+    fetch("{% url 'bookings' %}", { 
+      method: 'POST', 
+      body: JSON.stringify(formData) 
+    })
+    .then(r => r.text())
+    .then(() => getBookings());
+  });
+</script>
+{% endblock %}
